@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<HTML>
+ <HEAD>
+  <TITLE>HTTP File Server</TITLE>
+  <meta http-equiv="content-type" content="text/html; charset=UTF-8">
+  <link rel="stylesheet" href="css/zTreeStyle.css" type="text/css">
+  <script type="text/javascript" src="js/jquery.min.js"></script>
+  <script type="text/javascript" src="js/jquery.ztree.all.min.js"></script>
+  <SCRIPT LANGUAGE="JavaScript">
+   var zTreeObj;
+   var setting = {callback:{
+                  onClick:zTreeOnClick
+                 }};
+   var zNodes = [
+   ];
+   $(document).ready(function(){
+      zTreeObj = $.fn.zTree.init($("#treeDemo"), setting, zNodes);
+   });
+   function zTreeOnClick(event,treeId,treeNode,clickFlag){
+
+   queryPath=""
+	   $.each(treeNode.getPath(),function(key,val){
+		   queryPath=queryPath+"/"+val.name
+	   })
+$.getJSON("./api/listfile?path=/"+queryPath,function(data){
+        var zTree = $.fn.zTree.getZTreeObj("treeDemo")
+        var nodes = zTree.getNodes()
+        var dirs=[];
+        var files=[];
+	zTree.removeChildNodes(treeNode) //refresh treeNode
+        //console.debug(data)
+	if(data.Dirs != null){
+         $.each(data.Dirs,function(key,val){
+         //dirs.push('<li id="' + key + '">' + val.Path + '</li>');
+         n = { name :val.Path, children:[]}
+         zTree.addNodes(treeNode,key,n,false)
+	})}
+	if(data.Files != null){
+        $.each(data.Files,function(key,val){
+         //files.push('<li id="' + key + '">' + val.Path + '</li>');
+         n = { name :val.Path,url:"/files/"+queryPath+"/"+val.Path}
+         zTree.addNodes(treeNode,key,n,false)
+        })
+	}
+        //$(".dirs").html(dirs.join(''));
+        //zTree.updateNodes(nodes)
+
+})
+   }
+  </SCRIPT>
+ </HEAD>
+<BODY>
+<div>
+   <ul id="treeDemo" class="ztree"></ul>
+</div>
+<div class="dirs"></div>
+<script>
+$.getJSON("./api/listfile?path=/",function(data){
+        var zTree = $.fn.zTree.getZTreeObj("treeDemo")
+        var nodes = zTree.getNodes()
+        var dirs=[];
+        var files=[];
+        console.debug(data)
+	if(data.Dirs != null){
+        $.each(data.Dirs,function(key,val){
+         //dirs.push('<li id="' + key + '">' + val.Path + '</li>');
+         n = { name :val.Path, children:[]}
+         zTree.addNodes(null,key,n,false)
+        })
+	}
+	if(data.Files != null){
+        $.each(data.Files,function(key,val){
+         //files.push('<li id="' + key + '">' + val.Path + '</li>');
+         n = { name :val.Path+" "+val.Size+" "+val.Date,url:"/files/"+val.Path}
+         zTree.addNodes(null,key,n,false)
+	})}
+        //$(".dirs").html(dirs.join(''));
+        //zTree.updateNodes(nodes)
+
+})
+
+</script>
+</BODY>
+</HTML>
+
