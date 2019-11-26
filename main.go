@@ -4,9 +4,7 @@ import (
   "net/http"
   "encoding/base64"
   "strconv"
-  "bytes"
   "log"
-  "text/template"
   "io/ioutil"
   "encoding/json"
   "github.com/labstack/echo"
@@ -64,18 +62,16 @@ func main() {
   e.GET("js/jquery.ztree.all.min.js",ztree)
   e.GET("css/zTreeStyle.css",ztreestyle)
   e.GET("css/img/zTreeStandard.png",zpng)
+  e.GET("css/img/line_connect.gif",zgif)
+  e.GET("/favicon.ico",fav)
   e.GET("demo",demo)
   e.GET("/",index)
   e.GET("api/listfile",apilistfile)
 
-  //e.GET(httpconfig.Url,listfile)
-
-  // Routes
-  e.GET("/ping", hello)
-
   // Start server
   e.Logger.Fatal(e.Start(httpconfig.Port))
 }
+
 func apilistfile(c echo.Context) error {
       querypath := c.QueryParam("path")
       log.Println("api:list file,query path ",querypath)
@@ -93,6 +89,7 @@ func apilistfile(c echo.Context) error {
 			fileCtx.Files = append(fileCtx.Files,FILE{Path:f.Name(),Size: strconv.FormatInt(f.Size(),10)+" bytes",Date:f.ModTime().Format("2006-01-02 15:04:05")})}
 
      }
+     return c.JSON(http.StatusOK,fileCtx)
      dat , err := json.Marshal(fileCtx)
      return c.String(http.StatusOK,string(dat))
 }
@@ -100,21 +97,37 @@ func index(c echo.Context) error{
 	return c.HTML(http.StatusOK,`<!DOCTYPE html>
 <HTML>
  <HEAD>
-  <TITLE>HTTP File Server</TITLE>
+  <TITLE>Jian's HTTP File Server</TITLE>
   <meta http-equiv="content-type" content="text/html; charset=UTF-8">
   <link rel="stylesheet" href="css/zTreeStyle.css" type="text/css">
   <script type="text/javascript" src="js/jquery.min.js"></script>
   <script type="text/javascript" src="js/jquery.ztree.all.min.js"></script>
   <SCRIPT LANGUAGE="JavaScript">
    var zTreeObj;
+   var IDMark_A = "_a";
    var setting = {callback:{
-                  onClick:zTreeOnClick
-                 }};
+                  onClick:zTreeOnClick,
+                  onExpand:zTreeOnClick
+                 },
+                  view: {
+			  addDiyDom: addDiyDom
+		   }};
    var zNodes = [
    ];
    $(document).ready(function(){
       zTreeObj = $.fn.zTree.init($("#treeDemo"), setting, zNodes);
    });
+   function addDiyDom(treeId, treeNode){
+	   var aObj = $("#" + treeNode.tId + IDMark_A);
+	   //console.debug("add Diy dom called "+treeNode.name)
+	   
+
+	   if(treeNode.date != null){
+	         var editStr = "<span style='display:inline-block;position:absolute;right:1%'><tr id='diytr_"+treeNode.id+"'>"+"<td>"+treeNode.size+"  </td>"+"<td>"+treeNode.date+"</td>"+"</tr></span>";
+	      aObj.after(editStr)
+	   }
+
+   }
    function zTreeOnClick(event,treeId,treeNode,clickFlag){
 
    queryPath=""
@@ -137,7 +150,7 @@ $.getJSON("./api/listfile?path=/"+queryPath,function(data){
 	if(data.Files != null){
         $.each(data.Files,function(key,val){
          //files.push('<li id="' + key + '">' + val.Path + '</li>');
-         n = { name :val.Path,url:"/files/"+queryPath+"/"+val.Path}
+         n = { name :val.Path,url:"/files/"+queryPath+"/"+val.Path,size: val.Size, date: val.Date}
          zTree.addNodes(treeNode,key,n,false)
         })
 	}
@@ -159,7 +172,7 @@ $.getJSON("./api/listfile?path=/",function(data){
         var nodes = zTree.getNodes()
         var dirs=[];
         var files=[];
-        console.debug(data)
+        //console.debug(data)
 	if(data.Dirs != null){
         $.each(data.Dirs,function(key,val){
          //dirs.push('<li id="' + key + '">' + val.Path + '</li>');
@@ -170,7 +183,7 @@ $.getJSON("./api/listfile?path=/",function(data){
 	if(data.Files != null){
         $.each(data.Files,function(key,val){
          //files.push('<li id="' + key + '">' + val.Path + '</li>');
-         n = { name :val.Path,url:"/files/"+val.Path}
+         n = { name :val.Path,url:"/files/"+val.Path,size: val.Size, date: val.Date}
          zTree.addNodes(null,key,n,false)
 	})}
         //$(".dirs").html(dirs.join(''));
@@ -185,81 +198,26 @@ $.getJSON("./api/listfile?path=/",function(data){
 func demo(c echo.Context) error{
 	demo, _ := ioutil.ReadFile("demo.html")
 	return c.HTMLBlob(http.StatusOK,demo)
-	return c.HTML(http.StatusOK,`<!DOCTYPE html>
-<HTML>
- <HEAD>
-  <TITLE> ZTREE DEMO </TITLE>
-  <meta http-equiv="content-type" content="text/html; charset=UTF-8">
-  <link rel="stylesheet" href="css/zTreeStyle.css" type="text/css">
-  <script type="text/javascript" src="js/jquery.min.js"></script>
-  <script type="text/javascript" src="js/jquery.ztree.all.min.js"></script>
-  <SCRIPT LANGUAGE="JavaScript">
-   var zTreeObj;
-   var setting = {};
-   var zNodes = [
-   {name:"test1", open:true, children:[
-      {name:"test1_1"}, {name:"test1_2"}]},
-   {name:"test2", open:true, children:[
-      {name:"test2_1"}, {name:"test2_2"}]}
-   ];
-   $(document).ready(function(){
-      zTreeObj = $.fn.zTree.init($("#treeDemo"), setting, zNodes);
-   });
-  </SCRIPT>
- </HEAD>
-<BODY>
-<div>
-   <ul id="treeDemo" class="ztree"></ul>
-</div>
-<div class="dirs"></div>
-<script>
-$.getJSON("./api/listfile?path=/",function(data){
-	var text=data.DIRS
-	$(".dirs").html(text);
-})
-
-</script>
-</BODY>
-</HTML>`)
 }
 
-func listfile(c echo.Context) error{
-	log.Println("list file -",c.Request().URL.Path)
-	tmpl,err := template.New("test").Parse(`<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
-<head>
-<meta http-equiv="Content-Type" content="text/html; charset=utf-8"><meta name="viewport" content="width=512"><title>Go HTTP File Server</title>
-<link rel="stylesheet" href="/main.css" type="text/css">
-<link rel="shortcut icon" href="/favicon.ico" type="image/x-icon">
-</head>
-<body><center>
-<br>
-<table cellspacing="0" width="480px">
-<tr><td class="nameheader"><a href="/C%3A?sort=name&amp;ascending=0"><span class="nobr"><nobr>Name<img class="updown" src="/up.gif" alt=""></nobr></span></a></td><td class="sizeheader"><a href="/C%3A?sort=size&amp;ascending=0"><span class="nobr"><nobr>Size</nobr></span></a></td><td class="modifiedheader"><a href="/C%3A?sort=date_modified&amp;ascending=0"><span class="nobr"><nobr>Modification date</nobr></span></a></td></tr>
-<tr><td colspan="3" class="lineshadow" height="1"></td></tr>
+//static file resources
 
-{{range $i, $x := $.Dirs}} <tr class="trdata1"><td class="folder"><span class="nobr"><nobr><a href="{{$x.Path}}/">{{$x.Path}}</a></td></tr>{{end}}
-{{range $i, $x := $.Files}} <tr class="trdata1"><td class="file"><span class="nobr"><nobr><a href="{{$x.Path}}">{{$x.Path}}</a></nobr></span></td><td class="sizedata"><span class="nobr"><nobr>{{$x.Size}}</nobr></span></td> <td class="modifieddata"><span class="nobr"><nobr>{{$x.Date}}</nobr></span></td></tr>{{end}}
-</table>
-</center>
-</body>`)
-      fileCtx := FileListInfo{}
-      files, err := ioutil.ReadDir(c.Request().URL.Path)
-          if err != nil {
-		          log.Fatal(err)
-	}
-     for _, f:= range files {
-	     if f.IsDir() {
-	        fileCtx.Dirs = append(fileCtx.Dirs,DIR{Path: f.Name()})
-    		} else {
-			fileCtx.Files = append(fileCtx.Files,FILE{Path:f.Name(),Size: strconv.FormatInt(f.Size(),10)+" bytes",Date:f.ModTime().Format("2006-01-02 15:04:05")})}
+func fav(c echo.Context)error{
+	gifb64 :=`AAABAAEAEBAAAAEAIABoBAAAFgAAACgAAAAQAAAAIAAAAAEAIAAAAAAAAAQAABILAAASCwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAYAAAACwUAAIQoAACFIwAAAAMAAAYAAAADAAAAAAMAAH8jAACLKQAAIgUAADEAAAAAAAAAAAAAAAAAAAAAAAAAMgAAABoUAADbswAA2J8AAAALAAALAAAACAAAAAAMAADUnwAA4rYAADgUAABUAAAAAAAAAAAAAAAAAAAAAAAAAC4AAAAYGwAA3skAANqzAAAADwAACQAAAAcAAAAAEAAA1bUAAObMAAAyGgAATAAAAAAAAAAAAAAAAAAAAAAAAAAuAAAAGBsAAN7JAADaswAAAA4AAAkAAAAHAAAAABAAANa0AADmzAAAMhoAAEwAAAAAAAAAAAAAAAAAAAAAAAAALgAAABgbAADeyQAA1rcAAAAZAAAACgAAAAoAAAAaAADSuAAA5swAADIaAABMAAAAAAAAAAAAAAAAAAAAAAAAAC4AAAAYGwAA3ccAAO3pAADYsgAA360AAN+tAADXswAA6+kAAOXKAAAyGgAATAAAAAAAAAAAAAAAAAAAAAAAAAAuAAAAGBsAAN7HAADo7AAAybsAAM63AADOtwAAyLwAAOfsAADmygAAMhoAAEwAAAAAAAAAAAAAAAAAAAAAAAAALgAAABgbAADeyQAA07kAAAAhAAAAEgAAABIAAAAiAADPugAA5swAADIaAABMAAAAAAAAAAAAAAAAAAAAAAAAAC4AAAAYGwAA3skAANqzAAAADgAACQAAAAcAAAAAEAAA1rQAAObMAAAyGgAATAAAAAAAAAAAAAAAAAAAAAAAAAAwAAAAGRoAAN/IAADbsgAAAA4AAAoAAAAHAAAAABAAANezAADnywAANBkAAE8AAAAAAAAAAAAAAAAAAAAAAAAAKgAAABYNAAC3cQAAtGQAAAAHAAAIAAAABgAAAAAIAACxZQAAvXIAACsNAABBAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAQAAAAYAAAAFAAAAAQAAAAAAAAAAAAAAAQAAAAUAAAAFAAAAAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA//8AAP//AADhhwAA4YcAAOGHAADhhwAA4AcAAOAHAADgBwAA4AcAAOGHAADhhwAA4YcAAOGHAAD//wAA//8AAA==`
+	imgb,err := base64.StdEncoding.DecodeString(gifb64)
+	if err != nil {
+		log.Fatalln(err)}
 
-     }
-     var buf bytes.Buffer
-
-     tmpl.Execute(&buf,fileCtx)
-     return c.HTML(http.StatusOK,buf.String())
+	return c.Blob(http.StatusOK,"image/png",imgb)
 }
+func zgif(c echo.Context)error{
+	gifb64 :=`R0lGODlhCQACAIAAAMzMzP///yH5BAEAAAEALAAAAAAJAAIAAAIEjI9pUAA7`
+	imgb,err := base64.StdEncoding.DecodeString(gifb64)
+	if err != nil {
+		log.Fatalln(err)}
 
+	return c.Blob(http.StatusOK,"image/gif",imgb)
+}
 
 //static file handling
 func zpng(c echo.Context) error{
@@ -821,8 +779,4 @@ tr.trdata1:hover, tr.trdata2:hover {
 	padding-left: 8px;
 	padding-right: 8px;
 }`)
-}
-// Handler
-func hello(c echo.Context) error {
-  return c.String(http.StatusOK, "Hello, World!")
 }
